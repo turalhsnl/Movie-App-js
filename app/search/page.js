@@ -9,7 +9,9 @@ export default async function SearchPage({ searchParams }) {
       <h1 className="text-2xl font-bold">Search</h1>
       {q ? (
         <>
-          <p className="opacity-75">Results for "<b>{q}</b>"</p>
+          <p className="opacity-75">
+            Results for &ldquo;<b>{q}</b>&rdquo;
+          </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {(data.results || []).map(m => <MovieCard key={m.id} movie={m} />)}
           </div>
