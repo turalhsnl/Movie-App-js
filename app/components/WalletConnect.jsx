@@ -7,11 +7,13 @@ import {
   loadPersistedAccount,
   subscribeToAccountChanges,
 } from "@/lib/metamask";
+import { loadProfile, subscribeToProfileChanges } from "@/lib/metamaskProfiles";
 
 export default function WalletConnect() {
   const [address, setAddress] = useState(null);
   const [hasProvider, setHasProvider] = useState(false);
   const [error, setError] = useState(null);
+  const [profileName, setProfileName] = useState("");
 
   useEffect(() => {
     const available = hasMetamask();
@@ -33,6 +35,21 @@ export default function WalletConnect() {
     });
   }, []);
 
+  useEffect(() => {
+    if (!address) {
+      setProfileName("");
+      return undefined;
+    }
+
+    const updateProfile = () => {
+      const profile = loadProfile(address);
+      setProfileName(profile?.displayName || "");
+    };
+
+    updateProfile();
+    return subscribeToProfileChanges(updateProfile);
+  }, [address]);
+
   const handleConnect = async () => {
     setError(null);
     try {
@@ -51,6 +68,15 @@ export default function WalletConnect() {
   return (
     <div className="flex flex-col items-end gap-1">
       {address ? (
+        <span className="text-sm bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-1" title={address}>
+          {profileName ? (
+            <>
+              <span className="font-medium">{profileName}</span>
+              <span className="opacity-70"> ({address.slice(0, 6)}…{address.slice(-4)})</span>
+            </>
+          ) : (
+            `${address.slice(0, 6)}…${address.slice(-4)}`
+          )}
         <span className="text-sm bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-1">
           {address.slice(0, 6)}…{address.slice(-4)}
         </span>
