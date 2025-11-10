@@ -13,7 +13,17 @@ const statusTone = {
 };
 
 export default function LoginPage() {
-  const { account, profile, hasProvider, connect, disconnect, isConnecting, isAuthenticated, error, setError } = useAuth();
+  const {
+    account,
+    profile,
+    hasProvider,
+    connect,
+    disconnect,
+    isConnecting,
+    isAuthenticated,
+    error,
+    setError,
+  } = useAuth();
   const [profileName, setProfileName] = useState(profile?.displayName || "");
   const [status, setStatus] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -21,6 +31,7 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const redirectParam = searchParams?.get("redirect") || "/";
   const safeRedirect = redirectParam.startsWith("/") && redirectParam !== "/login" ? redirectParam : "/";
+  const hasRedirect = searchParams?.has("redirect");
 
   useEffect(() => {
     setProfileName(profile?.displayName || "");
@@ -75,6 +86,25 @@ export default function LoginPage() {
     if (!isAuthenticated) return;
     router.replace(safeRedirect);
   }, [isAuthenticated, router, safeRedirect]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !hasRedirect) {
+      return;
+    }
+
+    setStatus(previous => {
+      if (previous?.type === "error") {
+        return previous;
+      }
+      return { type: "success", message: "Wallet connected. Redirecting you to the app…" };
+    });
+
+    const timeout = setTimeout(() => {
+      router.replace(safeRedirect);
+    }, 800);
+
+    return () => clearTimeout(timeout);
+  }, [hasRedirect, isAuthenticated, router, safeRedirect]);
 
   const statusClass = status ? statusTone[status.type] || "text-sky-400" : "";
 
@@ -158,10 +188,12 @@ export default function LoginPage() {
               disabled={!isAuthenticated}
               className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Continue to app
+              {hasRedirect ? "Redirecting…" : "Continue to app"}
             </button>
             <p className="text-xs opacity-70">
-              You&rsquo;ll be redirected to {safeRedirect === "/" ? "the home page" : safeRedirect} after connecting.
+              {hasRedirect
+                ? "Hang tight—once your wallet is linked we’ll take you back to where you left off."
+                : `You’ll be redirected to ${safeRedirect === "/" ? "the home page" : safeRedirect} after connecting.`}
             </p>
           </div>
 

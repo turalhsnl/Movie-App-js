@@ -33,6 +33,30 @@ const normaliseMovie = movie => {
   };
 };
 
+const normaliseMany = candidate => {
+  const list = Array.isArray(candidate) ? candidate : [candidate];
+  return list.map(normaliseMovie).filter(Boolean);
+};
+
+const mergeUnique = (incoming, existing) => {
+  if (!incoming?.length) {
+    return existing;
+  }
+
+  const seen = new Set();
+  const result = [];
+
+  for (const item of [...incoming, ...existing]) {
+    const normalised = normaliseMovie(item);
+    if (!normalised) continue;
+    if (seen.has(normalised.id)) continue;
+    seen.add(normalised.id);
+    result.push(normalised);
+  }
+
+  return result;
+};
+
 const getStorage = () => {
   if (typeof window === "undefined") return null;
   try {
@@ -164,16 +188,12 @@ export function WatchlistProvider({ children }) {
 
   const add = useCallback(
     movie => {
-      updateItems(previous => {
-        const normalised = normaliseMovie(movie);
-        if (!normalised) {
-          return previous;
-        }
-        if (previous.some(item => item.id === normalised.id)) {
-          return previous;
-        }
-        return [normalised, ...previous];
-      });
+      const additions = normaliseMany(movie);
+      if (additions.length === 0) {
+        return;
+      }
+
+      updateItems(previous => mergeUnique(additions, previous));
     },
     [updateItems],
   );
@@ -197,12 +217,12 @@ export function WatchlistProvider({ children }) {
           return previous.filter(item => item.id !== id);
         }
 
-        const normalised = normaliseMovie(movie);
-        if (!normalised) {
+        const additions = normaliseMany(movie);
+        if (additions.length === 0) {
           return previous;
         }
 
-        return [normalised, ...previous];
+        return mergeUnique(additions, previous);
       });
     },
     [updateItems],

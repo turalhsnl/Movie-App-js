@@ -18,6 +18,7 @@ import {
   subscribeToAccountChanges,
 } from "@/lib/metamask";
 import { loadProfile, subscribeToProfileChanges } from "@/lib/metamaskProfiles";
+import { clearSessionCookie, markSessionAuthenticated } from "@/lib/sessionCookie";
 
 const AuthContext = createContext(null);
 
@@ -83,6 +84,18 @@ export function AuthProvider({ children }) {
     updateProfile();
     return subscribeToProfileChanges(updateProfile);
   }, [account]);
+
+  useEffect(() => {
+    if (!isReady) {
+      return;
+    }
+
+    if (account) {
+      markSessionAuthenticated();
+    } else {
+      clearSessionCookie();
+    }
+  }, [account, isReady]);
 
   const connect = useCallback(async () => {
     setError(null);
