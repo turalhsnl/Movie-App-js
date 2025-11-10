@@ -1,15 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 const STORAGE_KEY = "watchlist.v1";
 
-const toTitle = (movie) => {
+const WatchlistContext = createContext(null);
+
+const toTitle = movie => {
   const candidates = [movie?.title, movie?.name, movie?.original_title, movie?.original_name];
-  return candidates.find((value) => typeof value === "string" && value.trim().length > 0)?.trim() || "Untitled";
+  return candidates.find(value => typeof value === "string" && value.trim().length > 0)?.trim() || "Untitled";
 };
 
-const normaliseMovie = (movie) => {
+const normaliseMovie = movie => {
   if (!movie || (movie.id ?? null) === null || movie.id === undefined) {
     return null;
   }
@@ -31,7 +40,7 @@ const getStorage = () => {
   }
 };
 
-const parseStoredList = (rawValue) => {
+const parseStoredList = rawValue => {
   try {
     const parsed = typeof rawValue === "string" ? JSON.parse(rawValue || "[]") : rawValue;
     if (!Array.isArray(parsed)) return [];
@@ -39,7 +48,7 @@ const parseStoredList = (rawValue) => {
     for (const candidate of parsed) {
       const normalised = normaliseMovie(candidate);
       if (!normalised) continue;
-      if (!unique.some((item) => item.id === normalised.id)) {
+      if (!unique.some(item => item.id === normalised.id)) {
         unique.push(normalised);
       }
     }
@@ -61,7 +70,7 @@ const read = () => {
   }
 };
 
-const write = (value) => {
+const write = value => {
   const storage = getStorage();
   if (!storage) return false;
   try {
@@ -72,7 +81,7 @@ const write = (value) => {
   }
 };
 
-export function useWatchlist() {
+export function WatchlistProvider({ children }) {
   const [items, setItems] = useState([]);
   const [isPersistent, setIsPersistent] = useState(true);
 
@@ -80,12 +89,14 @@ export function useWatchlist() {
     const { list, persistent } = read();
     setItems(list);
     setIsPersistent(persistent);
+  }, []);
 
-    if (!persistent) {
-      return () => {};
+  useEffect(() => {
+    if (typeof window === "undefined" || !isPersistent) {
+      return undefined;
     }
 
-    const handleStorage = (event) => {
+    const handleStorage = event => {
       if (event.key === STORAGE_KEY) {
         setItems(parseStoredList(event.newValue));
       }
@@ -93,33 +104,92 @@ export function useWatchlist() {
 
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
-  }, []);
+  }, [isPersistent]);
 
-  const inWatchlist = useCallback(
-    (id) => items.some((movie) => movie.id === id),
-    [items],
-  );
-
-  const toggle = useCallback((movie) => {
-    setItems((previous) => {
-      const existing = previous.some((item) => item.id === movie?.id);
-
-      if (existing) {
-        const next = previous.filter((item) => item.id !== movie.id);
-        write(next);
-        return next;
-      }
-
-      const normalised = normaliseMovie(movie);
-      if (!normalised) {
+  const updateItems = useCallback(updater => {
+    setItems(previous => {
+      const next = updater(previous);
+      if (!Array.isArray(next)) {
         return previous;
       }
 
-      const next = [normalised, ...previous];
-      write(next);
+      const changed =
+        next.length !== previous.length ||
+        next.some((item, index) => item.id !== previous[index]?.id);
+
+      if (!changed) {
+        return previous;
+      }
+
+      const success = write(next);
+      if (!success) {
+        setIsPersistent(false);
+      }
+
       return next;
     });
   }, []);
 
-  return { items, inWatchlist, toggle, canPersist: isPersistent };
+  const add = useCallback(
+    movie => {
+      updateItems(previous => {
+        const normalised = normaliseMovie(movie);
+        if (!normalised) {
+          return previous;
+        }
+        if (previous.some(item => item.id === normalised.id)) {
+          return previous;
+        }
+        return [normalised, ...previous];
+      });
+    },
+    [updateItems],
+  );
+
+  const remove = useCallback(
+    movie => {
+      updateItems(previous => previous.filter(item => item.id !== movie?.id));
+    },
+    [updateItems],
+  );
+
+  const toggle = useCallback(
+    movie => {
+      updateItems(previous => {
+        const id = movie?.id;
+        if (id === null || id === undefined) {
+          return previous;
+        }
+
+        if (previous.some(item => item.id === id)) {
+          return previous.filter(item => item.id !== id);
+        }
+
+        const normalised = normaliseMovie(movie);
+        if (!normalised) {
+          return previous;
+        }
+
+        return [normalised, ...previous];
+      });
+    },
+    [updateItems],
+  );
+
+  const inWatchlist = useCallback(id => items.some(movie => movie.id === id), [items]);
+
+  const value = useMemo(
+    () => ({ items, inWatchlist, toggle, add, remove, canPersist: isPersistent }),
+    [items, inWatchlist, toggle, add, remove, isPersistent],
+  );
+
+  return <WatchlistContext.Provider value={value}>{children}</WatchlistContext.Provider>;
+}
+
+export function useWatchlist() {
+  const context = useContext(WatchlistContext);
+  if (!context) {
+    throw new Error("useWatchlist must be used within a WatchlistProvider");
+  }
+  return context;
 }
