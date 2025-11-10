@@ -2,10 +2,12 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { FaFilm, FaHeart } from "react-icons/fa";
+import { FaFilm, FaHeart, FaUserCircle } from "react-icons/fa";
 import WalletConnect from "./WalletConnect";
+import { useAuth } from "./auth/AuthProvider";
 
 export default function Header() {
+  const { isAuthenticated } = useAuth();
   return (
     <header className="border-b border-neutral-800">
       <div className="container flex items-center justify-between py-4 gap-4">
@@ -13,6 +15,10 @@ export default function Header() {
         <SearchBar />
         <nav className="flex items-center gap-4">
           <Link href="/watchlist" className="inline-flex items-center gap-2 hover:opacity-80"><FaHeart /><span className="hidden sm:inline">Watchlist</span></Link>
+          <Link href="/login" className="inline-flex items-center gap-2 hover:opacity-80">
+            <FaUserCircle />
+            <span className="hidden sm:inline">{isAuthenticated ? "MetaMask Profile" : "MetaMask Login"}</span>
+          </Link>
           <WalletConnect />
         </nav>
       </div>
