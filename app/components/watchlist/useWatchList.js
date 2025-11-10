@@ -8,8 +8,10 @@ import {
   useMemo,
   useState,
 } from "react";
+import { normalizeAddress } from "@/lib/metamask";
+import { useAuth } from "../auth/AuthProvider";
 
-const STORAGE_KEY = "watchlist.v1";
+const STORAGE_KEY = "watchlist.byAccount.v1";
 
 const WatchlistContext = createContext(null);
 
@@ -58,23 +60,39 @@ const parseStoredList = rawValue => {
   }
 };
 
-const read = () => {
-  const storage = getStorage();
-  if (!storage) return { list: [], persistent: false };
-
+const parseStoredMap = rawValue => {
   try {
-    const list = parseStoredList(storage.getItem(STORAGE_KEY));
-    return { list, persistent: true };
+    const parsed = typeof rawValue === "string" ? JSON.parse(rawValue || "{}") : rawValue;
+    if (!parsed || typeof parsed !== "object") return {};
+    return parsed;
   } catch {
-    return { list: [], persistent: false };
+    return {};
   }
 };
 
-const write = value => {
+const sanitiseList = list => parseStoredList(Array.isArray(list) ? list : []);
+
+const read = account => {
+  const storage = getStorage();
+  if (!storage) return { list: [], persistent: false };
+
+  const map = parseStoredMap(storage.getItem(STORAGE_KEY));
+  const stored = account ? map[account] : [];
+  return { list: sanitiseList(stored), persistent: true };
+};
+
+const write = (account, value) => {
+  if (!account) return false;
   const storage = getStorage();
   if (!storage) return false;
   try {
-    storage.setItem(STORAGE_KEY, JSON.stringify(value));
+    const map = parseStoredMap(storage.getItem(STORAGE_KEY));
+    if (value.length > 0) {
+      map[account] = value;
+    } else {
+      delete map[account];
+    }
+    storage.setItem(STORAGE_KEY, JSON.stringify(map));
     return true;
   } catch {
     return false;
@@ -82,53 +100,67 @@ const write = value => {
 };
 
 export function WatchlistProvider({ children }) {
+  const { account } = useAuth();
+  const owner = normalizeAddress(account);
   const [items, setItems] = useState([]);
   const [isPersistent, setIsPersistent] = useState(true);
 
   useEffect(() => {
-    const { list, persistent } = read();
+    if (!owner) {
+      setItems([]);
+      setIsPersistent(true);
+      return;
+    }
+
+    const { list, persistent } = read(owner);
     setItems(list);
     setIsPersistent(persistent);
-  }, []);
+  }, [owner]);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !isPersistent) {
+    if (typeof window === "undefined" || !isPersistent || !owner) {
       return undefined;
     }
 
     const handleStorage = event => {
       if (event.key === STORAGE_KEY) {
-        setItems(parseStoredList(event.newValue));
+        const map = parseStoredMap(event.newValue);
+        setItems(sanitiseList(map?.[owner] || []));
       }
     };
 
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
-  }, [isPersistent]);
+  }, [isPersistent, owner]);
 
   const updateItems = useCallback(updater => {
+    if (!owner) {
+      return;
+    }
     setItems(previous => {
       const next = updater(previous);
       if (!Array.isArray(next)) {
         return previous;
       }
 
+      const sanitised = sanitiseList(next);
+
       const changed =
-        next.length !== previous.length ||
-        next.some((item, index) => item.id !== previous[index]?.id);
+        sanitised.length !== previous.length ||
+        sanitised.some((item, index) => item.id !== previous[index]?.id);
 
       if (!changed) {
         return previous;
       }
 
-      const success = write(next);
+      const success = write(owner, sanitised);
       if (!success) {
         setIsPersistent(false);
       }
 
-      return next;
+      return sanitised;
     });
-  }, []);
+  }, [owner]);
 
   const add = useCallback(
     movie => {
@@ -179,8 +211,16 @@ export function WatchlistProvider({ children }) {
   const inWatchlist = useCallback(id => items.some(movie => movie.id === id), [items]);
 
   const value = useMemo(
-    () => ({ items, inWatchlist, toggle, add, remove, canPersist: isPersistent }),
-    [items, inWatchlist, toggle, add, remove, isPersistent],
+    () => ({
+      items,
+      inWatchlist,
+      toggle,
+      add,
+      remove,
+      canPersist: isPersistent,
+      hasOwner: !!owner,
+    }),
+    [items, inWatchlist, toggle, add, remove, isPersistent, owner],
   );
 
   return <WatchlistContext.Provider value={value}>{children}</WatchlistContext.Provider>;
