@@ -1,26 +1,57 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
+import { useAuth } from "./auth/AuthProvider";
 
 export default function WalletConnect() {
-  const [address, setAddress] = useState(null);
-  const hasProvider = typeof window !== "undefined" && window.ethereum;
+  const { account, profile, hasProvider, connect, disconnect, isConnecting, error, setError, isAuthenticated } = useAuth();
 
-  useEffect(() => {
-    if (!hasProvider) return;
-    window.ethereum.request({ method: "eth_accounts" }).then(accs => setAddress(accs?.[0] || null));
-    const onChange = (accs)=> setAddress(accs?.[0] || null);
-    window.ethereum.on?.("accountsChanged", onChange);
-    return () => window.ethereum?.removeListener?.("accountsChanged", onChange);
-  }, [hasProvider]);
+  const handleConnect = useCallback(async () => {
+    setError(null);
+    try {
+      await connect();
+    } catch {
+      // error handled by auth context
+    }
+  }, [connect, setError]);
 
-  const connect = async () => {
-    if (!hasProvider) return;
-    const accs = await window.ethereum.request({ method: "eth_requestAccounts" });
-    setAddress(accs?.[0] || null);
-  };
+  const handleDisconnect = useCallback(() => {
+    disconnect();
+  }, [disconnect]);
 
-  if (!hasProvider) return <span className="text-sm opacity-75">MetaMask not detected</span>;
-  return address
-    ? <span className="text-sm bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-1">{address.slice(0,6)}…{address.slice(-4)}</span>
-    : <button onClick={connect} className="rounded-xl bg-indigo-600 hover:bg-indigo-500 px-3 py-2 text-sm">Connect Wallet</button>;
+  if (!hasProvider) {
+    return <span className="text-sm opacity-75">MetaMask not detected</span>;
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="flex flex-col items-end gap-1">
+        <button
+          onClick={handleConnect}
+          disabled={isConnecting}
+          className="rounded-xl bg-indigo-600 hover:bg-indigo-500 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isConnecting ? "Connecting…" : "Connect Wallet"}
+        </button>
+        {error ? <span className="text-xs text-red-400">{error}</span> : null}
+      </div>
+    );
+  }
+
+  const label = profile?.displayName || (account ? `${account.slice(0, 6)}…${account.slice(-4)}` : "Connected");
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <div className="flex items-center gap-2 text-sm bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-1" title={account || undefined}>
+        <span className="font-medium">{label}</span>
+        <button
+          type="button"
+          onClick={handleDisconnect}
+          className="text-xs font-medium underline opacity-70 hover:opacity-100"
+        >
+          Sign out
+        </button>
+      </div>
+      {error ? <span className="text-xs text-red-400">{error}</span> : null}
+    </div>
+  );
 }
