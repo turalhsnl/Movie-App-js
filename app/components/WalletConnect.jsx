@@ -77,6 +77,8 @@ export default function WalletConnect() {
           ) : (
             `${address.slice(0, 6)}…${address.slice(-4)}`
           )}
+        <span className="text-sm bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-1">
+          {address.slice(0, 6)}…{address.slice(-4)}
         </span>
       ) : (
         <button
