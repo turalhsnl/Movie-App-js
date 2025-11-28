@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { useWatchlist } from "../components/watchlist/useWatchList";
+import { useWatchlist } from "@/components/watchlist/useWatchList";
 import { imageUrl } from "@/lib/tmdb";
 
 function WatchlistItem({ movie, onRemove }) {

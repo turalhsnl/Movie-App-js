@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { useLikes } from "../components/likes/useLikes";
+import { useLikes } from "@/components/likes/useLikes";
 import { imageUrl } from "@/lib/tmdb";
 
 function LikedItem({ movie, onRemove }) {
