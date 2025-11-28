@@ -25,7 +25,7 @@ export default function Header() {
         <SearchBar />
         <nav className="flex items-center gap-4">
           <Link href="/watchlist" className="inline-flex items-center gap-2 hover:opacity-80"><FaBookmark /><span className="hidden sm:inline">Watchlist</span></Link>
-          <Link href="/liked" className="inline-flex items-center gap-2 hover:opacity-80"><FaHeart /><span className="hidden sm:inline">Liked</span></Link>
+          <Link href="/watchlist#liked" className="inline-flex items-center gap-2 hover:opacity-80"><FaHeart /><span className="hidden sm:inline">Liked</span></Link>
           <Link href="/login" className="inline-flex items-center gap-2 hover:opacity-80">
             <FaUserCircle />
             <span className="hidden sm:inline">{isAuthenticated ? "MetaMask Profile" : "MetaMask Login"}</span>
