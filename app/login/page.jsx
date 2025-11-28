@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useAuth } from "@/components/auth/AuthProvider";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useAuth } from "../components/auth/AuthProvider";
 import { saveProfile } from "@/lib/metamaskProfiles";
 
 const statusTone = {
@@ -13,6 +13,16 @@ const statusTone = {
 };
 
 export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={<main className="max-w-4xl space-y-6">Checking your MetaMask sign-in page…</main>}
+    >
+      <LoginContent />
+    </Suspense>
+  );
+}
+
+function LoginContent() {
   const {
     account,
     profile,

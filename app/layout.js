@@ -1,4 +1,5 @@
 import "./globals.css";
+import { Suspense } from "react";
 import Header from "./components/Header";
 import AuthGate from "./components/auth/AuthGate";
 import { AuthProvider } from "./components/auth/AuthProvider";
